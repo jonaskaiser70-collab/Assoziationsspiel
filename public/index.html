@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Assoziationsspiel – Konsens-Version (ohne Host)</title>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    /* === Clean Navy Theme =============================================== */
+    :root{
+      --bg:#0f1326;            /* dunkles Navy */
+      --panel:#161a32;         /* Card-Hintergrund */
+      --panel2:#1b2040;        /* Inputs/Prompt */
+      --text:#e9ecff;          /* Primärtext */
+      --muted:#a6add6;         /* Sekundärtext */
+      --brand1:#7f8cff;        /* Akzent blau/lila */
+      --brand2:#f39acb;        /* Akzent pink */
+      --ok:#72e3a6;
+      --err:#ff8a8a;
+      --border:rgba(255,255,255,.12);
+      --radius:18px;
+      --shadow:0 18px 50px rgba(0,0,0,.45);
+    }
+
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--text);
+      font-family:'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:
+        radial-gradient(800px 500px at 20% -10%, rgba(127,140,255,.12), transparent 60%),
+        radial-gradient(700px 400px at 120% 10%, rgba(243,154,203,.10), transparent 60%),
+        var(--bg);
+      display:flex; align-items:center; justify-content:center; padding:28px;
+      line-height:1.5; font-size:18px;
+    }
+
+    /* Container */
+    .app{ width:min(820px, 100%); display:grid; gap:22px }
+
+    /* Header */
+    header.panel{
+      background:transparent; border:0; box-shadow:none; padding:0; margin-top:12px;
+    }
+    .hero{ text-align:center; margin-bottom:18px; }
+    .hero .eyebrow{ font-size:16px; color:var(--muted); letter-spacing:.02em; }
+    .hero h1{
+      margin:6px 0 0;
+      font-size:clamp(28px,5vw,44px);
+      font-weight:800; line-height:1.1;
+      background:linear-gradient(90deg, var(--brand1), var(--brand2));
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-transform:uppercase; letter-spacing:.04em;
+    }
+    .hero .sub{ margin-top:4px; color:var(--muted); }
+
+    /* Karten */
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:24px;
+    }
+
+    /* Prompt */
+    .prompt{
+      margin:10px auto 12px;
+      width:100%;
+      background:var(--panel2);
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:999px;
+      padding:14px 20px;
+      font-size:22px; font-weight:700; text-align:center;
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.08), 0 6px 24px rgba(0,0,0,.25);
+    }
+
+    .chips{ display:flex; gap:10px; justify-content:center; color:var(--muted); }
+
+    /* Basis-Inputs & Buttons */
+    input[type="text"]{
+      width:100%;
+      background:var(--panel2);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:20px;
+      padding:14px 18px;
+      font-size:18px;
+      outline:none;
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.06);
+    }
+    input::placeholder{ color:#8f97c9; }
+    input:focus{
+      border-color: rgba(127,140,255,.6);
+      box-shadow:0 0 0 6px rgba(127,140,255,.18), inset 0 2px 0 rgba(255,255,255,.06);
+    }
+
+    .actions{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+    button{
+      border:1px solid rgba(255,255,255,.12);
+      background:#2a2f56;
+      color:#d8dcff;
+      border-radius:18px;
+      padding:14px 20px;
+      min-width:150px; min-height:54px;
+      font-weight:700; letter-spacing:.04em;
+      transition:transform .12s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+    }
+    button:hover{ transform:translateY(-1px); box-shadow:0 10px 26px rgba(0,0,0,.35); }
+    button:disabled{ opacity:.45; cursor:not-allowed; transform:none; }
+
+    /* Farb-Varianten */
+    .primary{ background:#ffffff; color:#0f1326; border-color:rgba(255,255,255,.6); }
+    .secondary{ background:linear-gradient(180deg,#7f8cff,#6d79ff); color:#071235; }
+    .danger{ background:linear-gradient(180deg,#ff9aa7,#ff7b8b); color:#2a0b12; }
+
+    /* Badges / Listen */
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 12px; border-radius:999px;
+      background:rgba(255,255,255,.06); border:1px solid var(--border);
+      color:var(--muted); font-size:14px;
+    }
+    .list{ display:grid; gap:10px; margin-top:10px; }
+    .item{
+      display:flex; justify-content:space-between; align-items:center;
+      padding:12px 16px; border-radius:14px;
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--border);
+    }
+    .hint{ font-size:14px; color:var(--muted); text-align:center; }
+
+    /* Responsive */
+    @media (max-width:740px){
+      .app{ gap:18px }
+      .panel{ padding:20px }
+      button{ min-width:130px; padding:12px 16px; }
+      .prompt{ font-size:20px; }
+    }
+    .hide{ display:none !important; }
+
+    /* --- SETUP: luftiger, ohne Überlauf ------------------------------------- */
+    #setup .row{
+      display:flex; flex-direction:column; align-items:center;
+      gap:14px; margin-top:10px;
+    }
+    #setup .row > *{
+      width:100%; max-width:520px; box-sizing:border-box;
+    }
+    #setup input{
+      font-size:20px; padding:16px 20px; background:var(--panel2); color:var(--text);
+      border:1px solid rgba(255,255,255,.18); border-radius:16px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,.35);
+    }
+    #setup input::placeholder{ color:#8f97c9; }
+    #setup input:focus{
+      border-color:var(--brand1);
+      box-shadow:0 0 0 4px rgba(127,140,255,.22), inset 0 2px 4px rgba(0,0,0,.35);
+      outline:none;
+    }
+    #setup #btnJoin{
+      font-size:20px; padding:16px 28px; border-radius:18px;
+      background:linear-gradient(135deg,#313a74,#252b58); color:var(--text);
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow:0 6px 22px rgba(0,0,0,.45);
+      transition:transform .12s, box-shadow .2s, filter .2s;
+      margin-top:6px;
+    }
+    #setup #btnJoin:hover{ transform:translateY(-2px); filter:brightness(1.07); box-shadow:0 10px 30px rgba(0,0,0,.55); }
+
+    /* --- GAME: kompakt & clean --------------------------------------------- */
+    #game .row{
+      display:flex; flex-direction:column; align-items:center;
+      gap:10px; margin-top:6px;
+    }
+    #game .row > *{ width:100%; max-width:640px; box-sizing:border-box; }
+    #game input{
+      font-size:18px; padding:12px 16px; background:var(--panel2); color:var(--text);
+      border:1px solid rgba(255,255,255,.18); border-radius:14px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,.3);
+    }
+    #game input::placeholder{ color:#8f97c9; }
+    #game input:focus{
+      border-color: var(--brand1);
+      box-shadow: 0 0 0 3px rgba(127,140,255,.18), inset 0 1px 3px rgba(0,0,0,.3);
+      outline:none;
+    }
+    #game .actions{
+      display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap:10px; width:100%; max-width:640px;
+    }
+    #game .actions button{
+      min-height:48px; padding:10px 14px; border-radius:14px; font-size:16px; letter-spacing:.02em;
+    }
+    #btnReveal.primary{ background:#e9ecff; color:#0f1326; border-color:rgba(255,255,255,.4); }
+    #btnRight.secondary{ background:linear-gradient(180deg,#7f8cff,#6d79ff); color:#071235; }
+    #btnWrong.danger{    background:linear-gradient(180deg,#ff9aa7,#ff7b8b); color:#2a0b12; }
+    #btnNext{            background:#262b54; color:#d8dcff; border:1px solid rgba(255,255,255,.14); }
+    #prompt{ max-width:640px; margin-left:auto; margin-right:auto; border-radius:20px; padding:12px 18px; font-size:20px; }
+
+    /* Topbar & Spieler */
+    .topbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .topbar .spacer{ flex:1; }
+    .ghost{
+      background:transparent; color:var(--muted); border:1px solid var(--border);
+      padding:8px 12px; border-radius:14px; font-size:14px; min-height:auto;
+    }
+    .ghost:hover{ color:var(--text); }
+    #playersSummary{ background:rgba(255,255,255,.06); }
+    #playersSummary.ready-ok{ box-shadow:0 0 0 2px rgba(114,227,166,.25) inset; }
+    #playersSummary.ready-wait{ box-shadow:0 0 0 2px rgba(255,138,138,.22) inset; }
+    #playersPanel.panel{ padding:16px 16px 18px; }
+    #playersPanel .item{ background:rgba(255,255,255,.04); }
+
+    /* Antworten – prominent */
+    #answersWrap{ margin-top:12px; }
+    .answers-list{ display:grid; gap:12px; max-width:820px; margin:12px auto 0; }
+    .answer-item{
+      display:grid; grid-template-columns: 1fr auto;
+      align-items:center; padding:14px 18px; border-radius:16px;
+      background:var(--panel2); border:1px solid var(--border);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,.25);
+      font-size:18px;
+    }
+    .answer-item .name{ color:var(--muted); font-weight:600; letter-spacing:.01em; }
+    .answer-item .text{ font-weight:800; font-size:20px; letter-spacing:.01em; }
+
+    @keyframes fadeUp{ from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+    .revealed .answer-item{ animation:fadeUp .18s ease both; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="panel" style="background:none;border:0;box-shadow:none;padding:0;">
+    <div class="hero">
+      <div class="eyebrow">Das </div>
+      <h1>ASSOZIATIONS</h1>
+      <div class="sub">Spiel</div>
+    </div>
+  </header>
+
+  <!-- Join -->
+  <section class="panel" id="setup">
+    <h2>Beitreten</h2>
+    <div class="row">
+      <input id="room" type="text" placeholder="Room-Code (z. B. ABC123)"/>
+      <input id="name" type="text" placeholder="Dein Name"/>
+      <button id="btnJoin" class="primary">Los geht’s</button>
+    </div>
+    <p class="hint">Teile den Room-Code mit deinen Mitspielern. Mindestens 2 Spieler nötig.</p>
+  </section>
+
+  <!-- Game -->
+  <section class="panel hide" id="game">
+    <!-- Topbar -->
+    <div class="row topbar">
+      <span class="pill" id="roomPill">Room —</span>
+      <span class="pill">Gesamt-Score: <b id="globalScore">0</b></span>
+      <span class="pill" id="playersSummary">👥 0 · ✅ 0/0</span>
+      <span class="spacer"></span>
+      <button class="ghost" id="togglePlayers">Spieler anzeigen</button>
+    </div>
+
+    <div class="prompt" id="prompt">—</div>
+
+    <!-- Eingabe + Buttons -->
+    <div class="row">
+      <input id="answer" type="text" placeholder="Deine Assoziation…"/>
+      <div class="actions">
+        <button id="btnReveal" class="primary">👀 Reveal</button>
+        <button id="btnRight"  class="secondary" disabled>✅ Richtig</button>
+        <button id="btnWrong"  class="danger"    disabled>❌ Falsch</button>
+        <button id="btnNext"   disabled>➡️ Weiter</button>
+      </div>
+    </div>
+
+    <p class="hint" id="status">Tippe eine Antwort und drücke „Reveal“. Alle müssen Reveal drücken.</p>
+
+    <!-- Antworten -->
+    <div id="answersWrap" class="hide">
+      <h2>Antworten</h2>
+      <div class="answers-list" id="answers"></div>
+    </div>
+
+    <!-- Spieler-Liste einklappbar -->
+    <section id="playersPanel" class="panel subtle hide" style="margin-top:14px">
+      <h2>Spieler</h2>
+      <div class="list" id="players"></div>
+    </section>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const escapeHtml = s => (s??"").toString()
+  .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+  .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+
+let socket, ROOM="", MY_NAME="";
+let STATE = {
+  prompt:"—", revealed:false, roundResolved:false, globalScore:0,
+  players:[], answers:null
+};
+
+function connect(){
+  socket = io();
+  socket.on("connect", ()=>{ socket.emit("join",{ room: ROOM, name: MY_NAME }); });
+  socket.on("state:sync", ({ room, state })=>{
+    if(room !== ROOM) return;
+    STATE = state;
+    render();
+  });
+}
+
+/* ------- UI ------- */
+$("#btnJoin").onclick = ()=>{
+  ROOM = ($("#room").value||"").trim().toUpperCase() || "DEMO";
+  MY_NAME = ($("#name").value||"").trim() || "Player";
+  $("#setup").classList.add("hide");
+  $("#game").classList.remove("hide");
+  $("#roomPill").textContent = `Room ${ROOM}`;
+  connect();
+};
+
+$("#answer").addEventListener("input", e=>{
+  socket.emit("player:updateAnswer", { answer: e.target.value });
+});
+
+$("#btnReveal").onclick = ()=>{
+  if(!STATE.revealed && ($("#answer").value||"").trim()){
+    socket.emit("player:pressReveal");
+  }
+};
+
+$("#btnRight").onclick = ()=> socket.emit("round:mark", { result:"richtig" });
+$("#btnWrong").onclick = ()=> socket.emit("round:mark", { result:"falsch" });
+$("#btnNext").onclick  = ()=> socket.emit("round:next");
+
+// Spieler-Panel ein-/ausblenden
+$("#togglePlayers").onclick = ()=>{
+  const p = $("#playersPanel");
+  const open = p.classList.toggle("hide");
+  $("#togglePlayers").textContent = open ? "Spieler anzeigen" : "Spieler verbergen";
+};
+
+/* ------- Render ------- */
+function render(){
+  $("#prompt").textContent = STATE.prompt || "—";
+  $("#globalScore").textContent = STATE.globalScore;
+
+  // Spieler-Liste
+  const players = $("#players");
+  players.innerHTML = "";
+  STATE.players.forEach(p=>{
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `<span>${escapeHtml(p.name)}</span>
+      <span class="hint">${p.ready ? "✅ bereit (Reveal gedrückt)" : "⏳ wartet"}</span>`;
+    players.appendChild(div);
+  });
+
+  // Antworten
+  const answersWrap = $("#answersWrap");
+  const answers = $("#answers");
+  if(STATE.revealed && STATE.answers){
+    answersWrap.classList.remove("hide");
+    answers.innerHTML = "";
+    STATE.answers.forEach(a=>{
+      const row = document.createElement("div");
+      row.className = "answer-item";
+      row.innerHTML = `<span class="name">${escapeHtml(a.name)}</span>
+                       <span class="text">${escapeHtml(a.answer || "—")}</span>`;
+      answers.appendChild(row);
+    });
+  } else {
+    answersWrap.classList.add("hide");
+  }
+
+  // Buttons-Status
+  const myAns = ($("#answer").value||"").trim();
+  $("#btnReveal").disabled = STATE.revealed || !myAns;
+  $("#btnRight").disabled = !(STATE.revealed && !STATE.roundResolved);
+  $("#btnWrong").disabled = !(STATE.revealed && !STATE.roundResolved);
+  $("#btnNext").disabled  = !(STATE.revealed && STATE.roundResolved);
+
+  // Status-Text
+  if(!STATE.revealed){
+    const readyCount = STATE.players.filter(p=>p.ready).length;
+    $("#status").textContent = `Ready: ${readyCount}/${STATE.players.length}. Mind. 2 Spieler, alle müssen Reveal drücken.`;
+  } else if(STATE.revealed && !STATE.roundResolved){
+    $("#status").textContent = "Entscheidung: „Richtig“ oder „Falsch“ (einer klickt).";
+  } else {
+    $("#status").textContent = "Runde abgeschlossen. „Weiter“ starten für nächstes Wort.";
+  }
+
+  // Zusammenfassung oben
+  const readyCount = STATE.players.filter(p=>p.ready).length;
+  const total = STATE.players.length;
+  const sum = $("#playersSummary");
+  sum.textContent = `👥 ${total} · ✅ ${readyCount}/${total}`;
+  sum.classList.toggle("ready-ok", readyCount === total && total >= 2);
+  sum.classList.toggle("ready-wait", !(readyCount === total && total >= 2));
+}
+</script>
+</body>
+</html>
