@@ -22,7 +22,44 @@ rooms[roomId] = {
 const rooms = Object.create(null);
 
 // simple Wortliste (später gern ersetzen/erweitern)
-const WORDS = ["Eissorte","Farbe","Tier","Stadt","Obst","Sportart","Auto-Marke","Getränk","Süßigkeit","Beruf"];
+const WORDS = [
+  // Essen & Trinken
+  "Eissorte", "Brotaufstrich", "Obst", "Gemüse", "Käse", "Getränk",
+  "Cocktail", "Pizza-Belag", "Süßigkeit", "Snack", "Fast-Food-Gericht",
+  "Teesorte", "Nudelgericht", "Suppenart", "Gewürz",
+  
+  // Backen & Kochen
+  "Gebäck", "Kuchen", "Plätzchen", "Brotart", "Frühstücksgericht",
+  "Soße", "Salatsorte",
+  
+  // Wohnen & Haus
+  "Teil eines Hauses", "Raum in einer Wohnung", "Möbelstück", "Haushaltsgerät",
+  "Deko-Objekt", "Bodenbelag", "Wandfarbe", "Haustier",
+  
+  // Fahrzeuge & Technik
+  "Automarke", "Automodell", "Motorradmarke", "Fahrradtyp", "Flugzeugtyp",
+  "Computerspiel", "Smartphone-Marke", "Konsolenspiel", "App",
+  
+  // Medien & Unterhaltung
+  "Youtuber/Streamer", "Filmgenre", "Seriencharakter", "Musikinstrument",
+  "Musikgenre", "Sänger/in", "Bandname", "Buchreihe", "Comicfigur",
+  "Superheld", "Cartoonfigur", "Serie", "Disney-Figur", 
+
+  // Schule & Bildung
+  "Schulfach", "Beruf", "Mathematikbegriff",
+    "Musikrichtung", "Geschichtsereignis", 
+
+  
+  // Freizeit & Reisen
+  "Sportart", "Brettspiel", "Reiseziel", "Stadt", "Land",
+  "Insel", "Tier", "Hobby",  "Festival",
+  "Jahreszeit", "Feiertag", 
+  
+  // Sonstiges & Kreativ
+  "Beruf", "Schulfach", "Kleidungsstück", "Schmuckstück",
+  "Farbe", "Blume", "Baum", "Wetterphänomen"
+];
+
 const nextWord = () => WORDS[Math.floor(Math.random()*WORDS.length)];
 
 /* ---------- Helpers ---------- */
