@@ -295,7 +295,8 @@ const $ = s => document.querySelector(s);
 const escapeHtml = s => (s??"").toString()
   .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
   .replaceAll('"',"&quot;").replaceAll("'","&#039;");
-
+  
+let LAST_PROMPT = null;
 let socket, ROOM="", MY_NAME="";
 let STATE = {
   prompt:"—", revealed:false, roundResolved:false, globalScore:0,
@@ -346,6 +347,13 @@ $("#togglePlayers").onclick = ()=>{
 /* ------- Render ------- */
 function render(){
   $("#prompt").textContent = STATE.prompt || "—";
+  // Eingabefeld leeren, wenn ein neues Wort kommt
+if (STATE.prompt !== LAST_PROMPT) {
+  const inp = $("#answer");
+  if (inp) inp.value = "";
+  LAST_PROMPT = STATE.prompt;
+}
+
   $("#globalScore").textContent = STATE.globalScore;
 
   // Spieler-Liste

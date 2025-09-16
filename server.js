@@ -25,8 +25,10 @@ const rooms = Object.create(null);
 const WORDS = [
   // Essen & Trinken
   "Eissorte", "Brotaufstrich", "Obst", "Gemüse", "Käse", "Getränk",
-  "Cocktail", "Pizza-Belag", "Süßigkeit", "Snack", "Fast-Food-Gericht",
-  "Teesorte", "Nudelgericht", "Suppenart", "Gewürz",
+  "Cocktail", "Pizza-Belag", "Süßigkeit", "Snack", "Fast-Food-Kette", "Fast-Food-Gericht", "Küchenutensil",
+  "Restaurantkette", 
+  
+  "Teesorte",  "Gewürz",
   
   // Backen & Kochen
   "Gebäck", "Kuchen", "Plätzchen", "Brotart", "Frühstücksgericht",
@@ -60,12 +62,20 @@ const WORDS = [
   "Farbe", "Blume", "Baum", "Wetterphänomen"
 ];
 
-const nextWord = () => WORDS[Math.floor(Math.random()*WORDS.length)];
+function nextWord(roomId) {
+  const R = ensureRoom(roomId);
+  if (!R.usedWords) R.usedWords = [];
+  if (R.usedWords.length >= WORDS.length) R.usedWords = [];  // neu starten, wenn alle durch sind
+  const remaining = WORDS.filter(w => !R.usedWords.includes(w));
+  const choice = remaining[Math.floor(Math.random() * remaining.length)];
+  R.usedWords.push(choice);
+  return choice;
+}
 
 /* ---------- Helpers ---------- */
 function ensureRoom(roomId){
   const R = rooms[roomId] ?? (rooms[roomId] = {
-    prompt: nextWord(),
+    prompt: nextWord(roomId),
     revealed: false,
     roundResolved: false,
     globalScore: 0,
@@ -150,7 +160,7 @@ io.on("connection", (socket)=>{
     if(!roomId) return;
     const R = ensureRoom(roomId);
     if(!(R.revealed && R.roundResolved)) return; // erst nach Entscheidung
-    R.prompt = nextWord();
+    R.prompt = nextWord(roomId);
     R.revealed = false;
     R.roundResolved = false;
     for(const p of R.players.values()){
